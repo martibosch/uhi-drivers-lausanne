@@ -1,0 +1,12 @@
+name: uhi-drivers-lausanne
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - ipykernel
+  - pip
+  - pre-commit
+  - python=3.12
+  - snakemake
+  - pip:
+      - -e .
