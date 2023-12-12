@@ -26,6 +26,7 @@ Repository = "https://github.com/martibosch/uhi-drivers-lausanne"
 include = ["uhi_drivers_lausanne", "uhi_drivers_lausanne.*"]
 
 [tool.ruff]
+extend-include = ["*.ipynb"]
 line-length = 88
 select = ["D", "E", "F", "I"]
 

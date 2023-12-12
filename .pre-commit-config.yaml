@@ -51,12 +51,6 @@ repos:
       - id: nbstripout
         args: ["--keep-output"]
 
-  - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.7.1
-    hooks:
-      - id: nbqa-black
-      - id: nbqa-ruff
-
   - repo: https://github.com/snakemake/snakefmt
     rev: v0.8.5
     hooks:
