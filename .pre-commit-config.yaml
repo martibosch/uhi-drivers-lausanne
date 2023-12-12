@@ -41,8 +41,9 @@ repos:
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.1.7
     hooks:
-      - id: ruff-format
       - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
 
   - repo: https://github.com/kynan/nbstripout
     rev: 0.6.1
