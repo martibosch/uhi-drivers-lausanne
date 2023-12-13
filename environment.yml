@@ -3,10 +3,16 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - awscli
+  - geopandas
   - ipykernel
+  - papermill
   - pip
   - pre-commit
-  - python=3.12
+  - python=3.11
+  - shapely
   - snakemake
+  - tqdm
   - pip:
       - -e .
+      - awscli-plugin-endpoint
