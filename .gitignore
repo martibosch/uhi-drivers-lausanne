@@ -70,6 +70,12 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# papermill outputs
+/notebooks/output/
+
+# meteostations cache
+/notebooks/cache/
+
 # pyenv
 .python-version
 

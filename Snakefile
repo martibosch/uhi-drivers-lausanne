@@ -24,8 +24,28 @@ rule register_ipykernel:
         " 'Python ({PROJECT_NAME})'"
 
 
-# 1. download data ---------------------------------------------------------------------
-NETATMO_DIR_NAME = "netatmo-lausanne-aug-21"
+# 1. meteo data preprocessing ----------------------------------------------------------
+# 1.0. agglomeration extent ------------------------------------------------------------
+rule download_agglom_extent:
+    output:
+        temp(f"{DATA_RAW_DIR}/agglom-extent.zip"),
+    shell:
+        "wget https://zenodo.org/record/4311544/files/agglom-extent.zip?download=1 -O "
+        "{output}"
+
+
+rule agglom_extent:
+    input:
+        rules.download_agglom_extent.output,
+    output:
+        directory(f"{DATA_RAW_DIR}/agglom-extent"),
+    shell:
+        "unzip {input} -d {output}"
+
+
+# 1.1. citizen weather stations (Netatmo) ----------------------------------------------
+# 1.1.1. download raw netatmo data -----------------------------------------------------
+NETATMO_DIR_NAME = "netatmo"
 
 
 rule download_netatmo_data:
@@ -38,19 +58,47 @@ rule download_netatmo_data:
         " {output}"
 
 
-# 2. preprocess netatmo data -----------------------------------------------------------
+# 1.1.2. preprocess netatmo data -------------------------------------------------------
 NETATMO_PREPROCESS_IPYNB_BASENAME = "netatmo-preprocessing.ipynb"
 
 
-rule preprocess_netatmo_data:
+rule netatmo_data:
     input:
-        data=ancient(rules.download_netatmo_data.output),
+        netatmo_data=ancient(rules.download_netatmo_data.output),
+        agglom_extent=ancient(rules.agglom_extent.output),
         notebook=path.join(NOTEBOOKS_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
     output:
         ts_df=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "ts-df.csv"),
         station_gser=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "station-gser.gpkg"),
         notebook=path.join(NOTEBOOKS_OUTPUT_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
     shell:
-        "papermill {input.notebook} {output.notebook} -p data_dir {input.data}"
+        "papermill {input.notebook} {output.notebook}"
+        " -p data_dir {input.netatmo_data}"
+        " -p agglom_extent_filepath {input.agglom_extent}"
+        " -p dst_ts_df_filepath {output.ts_df}"
+        " -p dst_station_gser_filepath {output.station_gser}"
+
+
+# 1.2. official weather stations -------------------------------------------------------
+
+OFFICIAL_STATIONS_DIR_NAME = "official"
+OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME = "official-stations-preprocessing.ipynb"
+
+
+rule official_stations_data:
+    input:
+        agglom_extent=ancient(rules.agglom_extent.output),
+        notebook=path.join(NOTEBOOKS_DIR, OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME),
+    output:
+        ts_df=path.join(DATA_INTERIM_DIR, OFFICIAL_STATIONS_DIR_NAME, "ts-df.csv"),
+        station_gser=path.join(
+            DATA_INTERIM_DIR, OFFICIAL_STATIONS_DIR_NAME, "station-gser.gpkg"
+        ),
+        notebook=path.join(
+            NOTEBOOKS_OUTPUT_DIR, OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME
+        ),
+    shell:
+        "papermill {input.notebook} {output.notebook}"
+        " -p agglom_extent_filepath {input.agglom_extent}"
         " -p dst_ts_df_filepath {output.ts_df}"
         " -p dst_station_gser_filepath {output.station_gser}"

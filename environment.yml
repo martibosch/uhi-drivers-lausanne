@@ -4,15 +4,20 @@ channels:
   - bioconda
 dependencies:
   - awscli
+  - contextily
+  - direnv
   - geopandas
   - ipykernel
+  - openpyxl
   - papermill
   - pip
   - pre-commit
   - python=3.11
+  - seaborn
   - shapely
   - snakemake
   - tqdm
   - pip:
       - -e .
       - awscli-plugin-endpoint
+      - https://github.com/martibosch/meteostations-geopy/archive/main.zip
