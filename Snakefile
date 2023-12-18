@@ -34,13 +34,22 @@ rule download_agglom_extent:
         "{output}"
 
 
-rule agglom_extent:
+rule agglom_extent_shp:
     input:
         rules.download_agglom_extent.output,
     output:
-        directory(f"{DATA_RAW_DIR}/agglom-extent"),
+        temp(directory(f"{DATA_RAW_DIR}/agglom-extent")),
     shell:
         "unzip {input} -d {output}"
+
+
+rule agglom_extent:
+    input:
+        rules.agglom_extent_shp.output,
+    output:
+        f"{DATA_RAW_DIR}/agglom-extent.gpkg",
+    shell:
+        "ogr2ogr -f GPKG {output} {input}"
 
 
 # 1.1. official weather stations -------------------------------------------------------
@@ -51,7 +60,7 @@ OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME = "official-stations-preprocessing.i
 
 rule official_stations_data:
     input:
-        agglom_extent=ancient(rules.agglom_extent.output),
+        agglom_extent=rules.agglom_extent.output,
         notebook=path.join(NOTEBOOKS_DIR, OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME),
     output:
         ts_df=path.join(DATA_INTERIM_DIR, OFFICIAL_STATIONS_DIR_NAME, "ts-df.csv"),
@@ -90,7 +99,7 @@ NETATMO_PREPROCESS_IPYNB_BASENAME = "netatmo-preprocessing.ipynb"
 rule netatmo_data:
     input:
         netatmo_data=ancient(rules.download_netatmo_data.output),
-        agglom_extent=ancient(rules.agglom_extent.output),
+        agglom_extent=rules.agglom_extent.output,
         notebook=path.join(NOTEBOOKS_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
     output:
         ts_df=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "ts-df.csv"),
