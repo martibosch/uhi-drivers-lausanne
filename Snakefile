@@ -43,43 +43,7 @@ rule agglom_extent:
         "unzip {input} -d {output}"
 
 
-# 1.1. citizen weather stations (Netatmo) ----------------------------------------------
-# 1.1.1. download raw netatmo data -----------------------------------------------------
-NETATMO_DIR_NAME = "netatmo"
-
-
-rule download_netatmo_data:
-    output:
-        directory(path.join(DATA_RAW_DIR, NETATMO_DIR_NAME)),
-    shell:
-        # download using awscli
-        # ensure that credentials are active
-        "aws s3 cp --recursive s3://ceat-data/swiss-urban-es/netatmo-lausanne-aug-21"
-        " {output}"
-
-
-# 1.1.2. preprocess netatmo data -------------------------------------------------------
-NETATMO_PREPROCESS_IPYNB_BASENAME = "netatmo-preprocessing.ipynb"
-
-
-rule netatmo_data:
-    input:
-        netatmo_data=ancient(rules.download_netatmo_data.output),
-        agglom_extent=ancient(rules.agglom_extent.output),
-        notebook=path.join(NOTEBOOKS_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
-    output:
-        ts_df=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "ts-df.csv"),
-        station_gser=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "station-gser.gpkg"),
-        notebook=path.join(NOTEBOOKS_OUTPUT_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
-    shell:
-        "papermill {input.notebook} {output.notebook}"
-        " -p data_dir {input.netatmo_data}"
-        " -p agglom_extent_filepath {input.agglom_extent}"
-        " -p dst_ts_df_filepath {output.ts_df}"
-        " -p dst_station_gser_filepath {output.station_gser}"
-
-
-# 1.2. official weather stations -------------------------------------------------------
+# 1.1. official weather stations -------------------------------------------------------
 
 OFFICIAL_STATIONS_DIR_NAME = "official"
 OFFICIAL_STATIONS_PREPROCESS_IPYNB_BASENAME = "official-stations-preprocessing.ipynb"
@@ -102,3 +66,59 @@ rule official_stations_data:
         " -p agglom_extent_filepath {input.agglom_extent}"
         " -p dst_ts_df_filepath {output.ts_df}"
         " -p dst_station_gser_filepath {output.station_gser}"
+
+
+# 1.2. citizen weather stations (Netatmo) ----------------------------------------------
+# 1.2.1. download raw netatmo data -----------------------------------------------------
+NETATMO_DIR_NAME = "netatmo"
+
+
+rule download_netatmo_data:
+    output:
+        directory(path.join(DATA_RAW_DIR, NETATMO_DIR_NAME)),
+    shell:
+        # download using awscli
+        # ensure that credentials are active
+        "aws s3 cp --recursive s3://ceat-data/swiss-urban-es/netatmo-lausanne-aug-21"
+        " {output}"
+
+
+# 1.2.2. preprocess netatmo data -------------------------------------------------------
+NETATMO_PREPROCESS_IPYNB_BASENAME = "netatmo-preprocessing.ipynb"
+
+
+rule netatmo_data:
+    input:
+        netatmo_data=ancient(rules.download_netatmo_data.output),
+        agglom_extent=ancient(rules.agglom_extent.output),
+        notebook=path.join(NOTEBOOKS_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
+    output:
+        ts_df=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "ts-df.csv"),
+        station_gser=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "station-gser.gpkg"),
+        notebook=path.join(NOTEBOOKS_OUTPUT_DIR, NETATMO_PREPROCESS_IPYNB_BASENAME),
+    shell:
+        "papermill {input.notebook} {output.notebook}"
+        " -p data_dir {input.netatmo_data}"
+        " -p agglom_extent_filepath {input.agglom_extent}"
+        " -p dst_ts_df_filepath {output.ts_df}"
+        " -p dst_station_gser_filepath {output.station_gser}"
+
+
+# 1.2.3. quality control netatmo data --------------------------------------------------
+
+NETATMO_QC_IPYNB_BASENAME = "netatmo-quality-control.ipynb"
+
+
+rule netatmo_qc:
+    input:
+        netatmo_ts_df=rules.netatmo_data.output.ts_df,
+        official_ts_df=rules.official_stations_data.output.ts_df,
+        notebook=path.join(NOTEBOOKS_DIR, NETATMO_QC_IPYNB_BASENAME),
+    output:
+        ts_df=path.join(DATA_INTERIM_DIR, NETATMO_DIR_NAME, "ts-df-qc.csv"),
+        notebook=path.join(NOTEBOOKS_OUTPUT_DIR, NETATMO_QC_IPYNB_BASENAME),
+    shell:
+        "papermill {input.notebook} {output.notebook}"
+        " -p netatmo_ts_df_filepath {input.netatmo_ts_df}"
+        " -p official_ts_df_filepath {input.official_ts_df}"
+        " -p dst_filepath {output.ts_df}"
