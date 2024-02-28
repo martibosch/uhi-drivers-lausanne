@@ -12,6 +12,7 @@ dependencies:
   - papermill
   - pip
   - pre-commit
+  - pystac-client
   - python=3.11
   - seaborn
   - shapely
