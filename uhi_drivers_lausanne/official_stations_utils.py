@@ -1,4 +1,5 @@
 """Official stations utils."""
+
 import tempfile
 from os import environ, path
 
@@ -41,6 +42,7 @@ class SpacesClient:
         endpoint_url : str, optional
             The complete URL to use for the constructed client. If no value is provided,
             the value set in the `S3_ENDPOINT_URL` environment variable will be used.
+
         """
         # # load dotenv file
         # _ = dotenv.load_dotenv(dotenv.find_dotenv())
@@ -80,6 +82,7 @@ class SpacesClient:
         -------
         idaweb_df : pandas.DataFrame
             IDAWEB data frame.
+
         """
         idaweb_df = pd.read_csv(
             self.client.get_object(Bucket=self.bucket_name, Key=key).get("Body"),
@@ -98,28 +101,36 @@ class SpacesClient:
 
         return idaweb_df
 
-    def get_vaudair_df(self, key: str) -> pd.DataFrame:
+    def get_vaudair_df(self, key: str, sheet_name: str | None = None) -> pd.DataFrame:
         """Get Vaud'air data frame.
 
         Parameters
         ----------
         key : str
             Key of the object in the bucket.
+        sheet_name : str
+            Name of the sheet in the Excel file. Default None.
 
         Returns
         -------
         vaudair_df : pandas.DataFrame
             Vaudair data frame.
+
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_filepath = path.join(tmp_dir, path.basename(key))
             with open(tmp_filepath, "wb") as tmp_file:
                 self.client.download_fileobj(self.bucket_name, key, tmp_file)
-            vaudair_df = (
-                pd.read_excel(tmp_filepath, index_col=0)
-                .iloc[2:]
-                .apply(pd.to_numeric, axis=1)
-            )
+            vaudair_df = pd.read_excel(tmp_filepath, index_col=0, sheet_name=sheet_name)
+            if isinstance(vaudair_df, dict):
+                # read multiple sheets
+                vaudair_df = pd.concat(
+                    [df.iloc[2:] for df in vaudair_df.values()],
+                    axis="rows",
+                )
+            else:
+                vaudair_df = vaudair_df.iloc[2:]
+            vaudair_df = vaudair_df.apply(pd.to_numeric, axis=1)
         vaudair_df.index = pd.to_datetime(vaudair_df.index.rename("time"))
 
         return vaudair_df
@@ -151,6 +162,7 @@ def get_station_gser(
     -------
     station_gser : geopandas.GeoSeries
         Geoseries of station locations, in the CRS specified by `station_location_crs`.
+
     """
     station_location_df = pd.read_csv(station_location_filepath)
     station_gser = gpd.GeoSeries(

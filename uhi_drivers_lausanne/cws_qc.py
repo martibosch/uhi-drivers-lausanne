@@ -32,6 +32,39 @@ from uhi_drivers_lausanne import settings
 #     return station_gser.duplicated(keep=False)
 
 
+def elevation_adjustment(
+    ts_df: pd.DataFrame,
+    station_elevation_ser: pd.Series,
+    atmospheric_lapse_rate: float | None = None,
+) -> pd.DataFrame:
+    """Adjust temperature measurements based on station elevation.
+
+    Parameters
+    ----------
+    ts_df : pandas.DataFrame
+        Time series of measurements (rows) for each station (columns).
+    station_elevation_ser : pandas.Series, optional
+        Series of station elevations, indexed by the station id. If provided, the
+        series of measurements is adjusted to account for the elevation effect.
+    atmospheric_lapse_rate : numeric, optional
+        Atmospheric lapse rate (in unit of `ts_df` per unit of `elevation_station_ser`)
+        to account for the elevation effect. Ignored if `elevation_station_ser` is not
+        provided. If None, the value from `settings.ATMOSPHERIC_LAPSE_RATE` is used.
+
+    Returns
+    -------
+    adjusted_ts_df : pandas.DataFrame
+        Time series of adjusted measurements (rows) for each station (columns).
+
+    """
+    if atmospheric_lapse_rate is None:
+        atmospheric_lapse_rate = settings.ATMOSPHERIC_LAPSE_RATE
+    station_elevation_ser = station_elevation_ser[ts_df.columns]
+    return ts_df + atmospheric_lapse_rate * (
+        station_elevation_ser - station_elevation_ser.mean()
+    )
+
+
 def get_outlier_stations(
     ts_df: pd.DataFrame,
     *,
@@ -66,6 +99,7 @@ def get_outlier_stations(
     outlier_stations : pandas.Series
         Boolean series indicating whether a station (index) is considered an outlier
         (indicated by a value of `True`).
+
     """
 
     def z_score(x):
@@ -77,13 +111,13 @@ def get_outlier_stations(
         high_alpha = settings.OUTLIER_HIGH_ALPHA
     if station_outlier_threshold is None:
         station_outlier_threshold = settings.STATION_OUTLIER_THRESHOLD
-    # ts_df = pd.DataFrame(self.ts_gdf.drop("geometry", axis=1).T)
+
     nonnan_df = ~ts_df.isna()
     low_z = norm.ppf(low_alpha)
     high_z = norm.ppf(high_alpha)
     outlier_df = (
-        ~ts_df.apply(z_score, axis=1).apply(
-            lambda z: z.between(low_z, high_z, inclusive="neither"), axis=1
+        ~ts_df.apply(z_score, axis="columns").apply(
+            lambda z: z.between(low_z, high_z, inclusive="neither"), axis="columns"
         )
         & nonnan_df
     )
@@ -114,11 +148,41 @@ def get_indoor_stations(
     indoor_stations : pandas.Series
         Boolean series indicating whether a station (index) is likely set up indoors
         (indicated by a value of `True`).
+
     """
     if station_indoor_corr_threshold is None:
         station_indoor_corr_threshold = settings.STATION_INDOOR_CORR_THRESHOLD
 
-    return ts_df.corrwith(ts_df.median(axis=1)) < station_indoor_corr_threshold
+    return ts_df.corrwith(ts_df.median(axis="columns")) < station_indoor_corr_threshold
+
+
+# function to filter stations depending on the proportion of available valid
+# measurements
+# def get_valid_stations(ts_df, min_nonna_prop):
+def get_unreliable_stations(
+    ts_df: pd.DataFrame, *, unreliable_threshold: float | None = None
+) -> pd.Series:
+    """Get stations with a high proportion of non-valid measurements.
+
+    Parameters
+    ----------
+    ts_df : pandas.DataFrame
+        Time series of measurements (rows) for each station (columns).
+    unreliable_threshold : numeric, optional
+        Proportion of non-valid measurements after which a station is considered
+        unreliable. If None, the value from `settings.UNRELIABLE_THRESHOLD` is used.
+
+    Returns
+    -------
+    unreliable_stations : pandas.Series
+        Boolean series indicating whether a station (index) is considered unreliable
+        (indicated by a value of `True`).
+
+    """
+    if unreliable_threshold is None:
+        unreliable_threshold = settings.UNRELIABLE_THRESHOLD
+
+    return ts_df.isna().sum() / len(ts_df.index) > unreliable_threshold
 
 
 # plotting
@@ -168,6 +232,7 @@ def comparison_lineplot(
     -------
     matplotlib.axes.Axes
         Axes of the plot.
+
     """
     return sns.lineplot(
         data=pd.concat(
